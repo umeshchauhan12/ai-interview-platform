@@ -41,7 +41,7 @@ def analyze_emotion_from_image(image_path: str) -> dict:
 
         return {
             "dominant_emotion": dominant_emotion,
-            "emotion_breakdown": {k: round(v, 2) for k, v in emotion_scores.items()},
+            "emotion_breakdown": {k: float(round(v, 2)) for k, v in emotion_scores.items()},
             "composure_feedback": feedback
         }
 

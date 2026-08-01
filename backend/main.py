@@ -22,6 +22,7 @@ from question_generator import get_questions
 from answer_scoring import score_answer
 from resume_parser import parse_resume, compute_skill_gap
 from speech_analysis import analyze_speech
+from emotion_analysis import analyze_emotion_from_image
 
 
 app = FastAPI(title="AI Interview Platform API", version="0.1.0")
@@ -133,6 +134,25 @@ def analyze_speech_endpoint(duration_seconds: float = Form(...), audio_file: Upl
     result = analyze_speech(temp_path, duration_seconds)
 
     # Temp file delete karo (cleanup)
+    os.remove(temp_path)
+
+    return result
+
+
+@app.post("/analyze-emotion")
+def analyze_emotion_endpoint(image_file: UploadFile = File(...)):
+    """
+    Candidate ki photo upload karo (interview ke dauran li gayi).
+    Ye facial emotion detect karega aur composure feedback dega.
+
+    Form data mein bhejna hoga: image_file (jpg/png image)
+    """
+    temp_path = f"temp_{image_file.filename}"
+    with open(temp_path, "wb") as buffer:
+        shutil.copyfileobj(image_file.file, buffer)
+
+    result = analyze_emotion_from_image(temp_path)
+
     os.remove(temp_path)
 
     return result
