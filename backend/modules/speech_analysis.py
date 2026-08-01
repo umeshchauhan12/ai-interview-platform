@@ -61,11 +61,11 @@ def calculate_speaking_pace(text: str, duration_seconds: float) -> dict:
 
     # Ideal interview speaking pace: 120-150 WPM
     if wpm < 100:
-        category = "Slow - thoda confidently aur fluently bolo"
+        category = "Slow - try to speak with a bit more confidence and fluency"
     elif wpm <= 160:
-        category = "Good - ye ek achhi speaking pace hai"
+        category = "Good - this is a solid speaking pace"
     else:
-        category = "Fast - thoda slow karo, clarity better hogi"
+        category = "Fast - slow down slightly for better clarity"
 
     return {"wpm": wpm, "pace_category": category}
 

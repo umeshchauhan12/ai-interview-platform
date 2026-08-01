@@ -18,6 +18,12 @@ function App() {
   const [scoreResult, setScoreResult] = useState(null)
   const [interviewLoading, setInterviewLoading] = useState(false)
 
+  const [audioFile, setAudioFile] = useState(null)
+  const [audioFileName, setAudioFileName] = useState('')
+  const [audioDuration, setAudioDuration] = useState('')
+  const [speechResult, setSpeechResult] = useState(null)
+  const [speechLoading, setSpeechLoading] = useState(false)
+
   const handleResumeAnalyze = async () => {
     if (!resumeFile || !jdText) {
       alert('Add a job description and choose a resume file first.')
@@ -94,6 +100,34 @@ function App() {
     const file = e.target.files[0]
     setResumeFile(file)
     setResumeFileName(file ? file.name : '')
+  }
+
+  const handleAudioFileChange = (e) => {
+    const file = e.target.files[0]
+    setAudioFile(file)
+    setAudioFileName(file ? file.name : '')
+  }
+
+  const handleAnalyzeSpeech = async () => {
+    if (!audioFile || !audioDuration) {
+      alert('Choose an audio file and enter its duration first.')
+      return
+    }
+    setSpeechLoading(true)
+    setSpeechResult(null)
+    const formData = new FormData()
+    formData.append('duration_seconds', audioDuration)
+    formData.append('audio_file', audioFile)
+    try {
+      const response = await axios.post(`${API_BASE}/analyze-speech`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      })
+      setSpeechResult(response.data)
+    } catch (error) {
+      alert('Could not analyze speech: ' + error.message)
+    } finally {
+      setSpeechLoading(false)
+    }
   }
 
   const scoreVal = scoreResult ? Math.round(scoreResult.final_score) : 0
@@ -259,6 +293,73 @@ function App() {
             )}
           </div>
         </section>
+
+        {/* ---------- FILE 03 — VOICE ---------- */}
+        <section className="tab-card">
+          <div className="tab-label">
+            <span className="tab-index">FILE 03</span>
+            <span className="tab-title">Voice Assessment</span>
+          </div>
+
+          <div className="tab-body">
+            <div className="field">
+              <label>Recorded answer (audio file)</label>
+              <div className="file-picker">
+                <label className="file-btn">
+                  Choose file
+                  <input type="file" accept="audio/*" onChange={handleAudioFileChange} hidden />
+                </label>
+                <span className="file-name">{audioFileName || 'No file selected'}</span>
+              </div>
+            </div>
+
+            <div className="field">
+              <label>Duration (seconds)</label>
+              <input
+                type="number"
+                className="duration-input"
+                placeholder="e.g. 25"
+                value={audioDuration}
+                onChange={(e) => setAudioDuration(e.target.value)}
+              />
+            </div>
+
+            <button className="action-btn" onClick={handleAnalyzeSpeech} disabled={speechLoading}>
+              {speechLoading ? 'Listening…' : 'Analyze delivery'}
+            </button>
+
+            {speechResult && !speechResult.error && (
+              <div className="readout">
+                <div className="voice-stats">
+                  <div className="voice-stat">
+                    <div className="voice-stat-value">{speechResult.speaking_pace?.wpm}</div>
+                    <div className="voice-stat-label">words / min</div>
+                  </div>
+                  <div className="voice-stat">
+                    <div className="voice-stat-value">{speechResult.filler_analysis?.total_filler_count}</div>
+                    <div className="voice-stat-label">filler words</div>
+                  </div>
+                  <div className="voice-stat">
+                    <div className="voice-stat-value">{speechResult.filler_analysis?.filler_ratio_percent}%</div>
+                    <div className="voice-stat-label">filler ratio</div>
+                  </div>
+                </div>
+
+                <p className="feedback-line">{speechResult.speaking_pace?.pace_category}</p>
+
+                <div className="transcript-box">
+                  <div className="chip-heading">transcript</div>
+                  <p className="transcript-text">{speechResult.transcribed_text}</p>
+                </div>
+              </div>
+            )}
+
+            {speechResult && speechResult.error && (
+              <p className="feedback-line">Error: {speechResult.error}</p>
+            )}
+          </div>
+        </section>
+
       </main>
     </div>
   )
