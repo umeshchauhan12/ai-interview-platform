@@ -8,6 +8,7 @@ Run karne ke liye: uvicorn backend.main:app --reload
 """
 
 from fastapi import FastAPI, UploadFile, File, Form
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional, List
 import sys
@@ -24,6 +25,15 @@ from speech_analysis import analyze_speech
 
 
 app = FastAPI(title="AI Interview Platform API", version="0.1.0")
+
+# CORS setup - taaki React frontend (localhost:5173) is backend ko call kar sake
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 # ---------- Request Body Schemas (Pydantic Models) ----------

@@ -33,7 +33,7 @@ def score_answer(user_answer: str, ideal_answer: str, keywords: list[str] = None
             "similarity_score": 0.0,
             "keyword_coverage": 0.0,
             "final_score": 0.0,
-            "feedback": "Koi answer nahi diya gaya."
+            "feedback": "No answer was provided."
         }
 
     # Step 1: Dono answers ko embeddings mein convert karo
@@ -68,15 +68,15 @@ def score_answer(user_answer: str, ideal_answer: str, keywords: list[str] = None
 
 
 def generate_feedback(score: float, missing_keywords: list) -> str:
-    """Score ke basis pe simple rule-based feedback deta hai."""
+    """Score ke basis pe simple rule-based feedback deta hai (English mein)."""
     if score >= 80:
-        feedback = "Excellent answer! Bahut relevant aur complete hai."
+        feedback = "Excellent answer! Highly relevant and complete."
     elif score >= 60:
-        feedback = "Achha answer hai, lekin thoda aur detail add kar sakte ho."
+        feedback = "Good answer, but could use more detail."
     elif score >= 40:
-        feedback = "Answer partially relevant hai. Core concept clear nahi hua."
+        feedback = "Partially relevant answer. The core concept isn't fully clear."
     else:
-        feedback = "Answer topic se match nahi kar raha. Concept dobara revise karo."
+        feedback = "This answer doesn't match the topic well. Consider revisiting the concept."
 
     if missing_keywords:
         feedback += f" Missing key points: {', '.join(missing_keywords)}."
@@ -85,7 +85,6 @@ def generate_feedback(score: float, missing_keywords: list) -> str:
 
 
 # ---- TEST KARNE KE LIYE (isko direct run kar sakte ho) ----
-
 if __name__ == "__main__":
     ideal = "Python is an interpreted, high-level programming language known for its readability and dynamic typing."
     user = "Python is a high-level language that is easy to read and doesn't need explicit type declarations."
