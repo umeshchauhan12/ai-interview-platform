@@ -8,3 +8,5 @@ temp_*
 *.wav
 
 node_modules/
+
+venv311/
