@@ -1,0 +1,7 @@
+cd D:\AI-Interview-Platform
+venv311\Scripts\activate
+uvicorn backend.main:app --reload
+
+
+cd D:\AI-Interview-Platform\frontend
+npm run dev
