@@ -23,6 +23,12 @@ from answer_scoring import score_answer
 from resume_parser import parse_resume, compute_skill_gap
 from speech_analysis import analyze_speech
 from emotion_analysis import analyze_emotion_from_image
+from code_evaluator import (
+    list_coding_questions, get_coding_question, run_submitted_code,
+    get_coding_round, score_coding_round
+)
+from readiness_prediction import compute_readiness
+from roadmap_generator import generate_roadmap
 
 
 app = FastAPI(title="AI Interview Platform API", version="0.1.0")
@@ -156,3 +162,123 @@ def analyze_emotion_endpoint(image_file: UploadFile = File(...)):
     os.remove(temp_path)
 
     return result
+
+
+class CodeSubmission(BaseModel):
+    user_code: str
+    question_id: str
+    language: Optional[str] = "python"
+    role: Optional[str] = "python developer"
+
+
+@app.get("/coding-questions")
+def get_coding_questions_endpoint(role: str = "python developer"):
+    """
+    Role ke saare coding questions ki list deta hai (sirf titles/ids,
+    poora question text nahi - taaki list halki rahe).
+    """
+    return {"questions": list_coding_questions(role)}
+
+
+@app.get("/coding-question")
+def get_single_coding_question(role: str = "python developer", question_id: str = None):
+    """
+    Ek specific coding question ka poora detail deta hai (title,
+    description, function name jo implement karna hai).
+    """
+    return get_coding_question(role, question_id)
+
+
+@app.post("/submit-code")
+def submit_code_endpoint(submission: CodeSubmission):
+    """
+    Candidate ka submitted code safely run karta hai aur test cases
+    ke against evaluate karta hai.
+
+    Request body: user_code (string), question_id (string),
+    language (optional: python/c/cpp/java/javascript), role (optional)
+    """
+    return run_submitted_code(
+        submission.user_code,
+        submission.question_id,
+        submission.language,
+        submission.role
+    )
+
+
+@app.get("/coding-round")
+def get_coding_round_endpoint(role: str = "python developer"):
+    """
+    Automatically builds one full coding round: a randomly chosen Easy,
+    Medium, and Hard question. No manual curation needed - a fresh mix
+    is picked every time this is called.
+    """
+    return get_coding_round(role)
+
+
+class CodingRoundScoreRequest(BaseModel):
+    submissions: List[dict]
+
+
+@app.post("/score-coding-round")
+def score_coding_round_endpoint(request: CodingRoundScoreRequest):
+    """
+    Takes the results of the 3 submissions (easy/medium/hard) from a
+    coding round and combines them into one weighted final score and
+    verdict (Strong / Moderate / Weak).
+
+    Request body: submissions - a list of objects like
+    {"difficulty": "easy", "passed": 3, "total": 3}
+    """
+    return score_coding_round(request.submissions)
+
+
+class ReadinessRequest(BaseModel):
+    skill_match_percent: Optional[float] = None
+    answer_scores: Optional[List[float]] = None
+    speech_wpm: Optional[float] = None
+    filler_ratio: Optional[float] = None
+    dominant_emotion: Optional[str] = None
+
+
+@app.post("/predict-readiness")
+def predict_readiness_endpoint(request: ReadinessRequest):
+    """
+    Combines all available signals from a session (skill match, answer
+    scores, speech pace, filler ratio, emotion) into an overall
+    interview readiness verdict.
+
+    All fields are optional - the model works with whatever signals
+    are available and normalizes weights accordingly.
+    """
+    return compute_readiness(
+        skill_match_percent=request.skill_match_percent,
+        answer_scores=request.answer_scores,
+        speech_wpm=request.speech_wpm,
+        filler_ratio=request.filler_ratio,
+        dominant_emotion=request.dominant_emotion
+    )
+
+
+class RoadmapRequest(BaseModel):
+    missing_skills: Optional[List[str]] = None
+    weakest_area: Optional[str] = None
+    component_scores: Optional[dict] = None
+    filler_ratio: Optional[float] = None
+    speech_wpm: Optional[float] = None
+
+
+@app.post("/generate-roadmap")
+def generate_roadmap_endpoint(request: RoadmapRequest):
+    """
+    Generates a personalized study roadmap based on the candidate's
+    weak areas (missing skills, low answer quality, speech issues,
+    composure issues).
+    """
+    return generate_roadmap(
+        missing_skills=request.missing_skills,
+        weakest_area=request.weakest_area,
+        component_scores=request.component_scores,
+        filler_ratio=request.filler_ratio,
+        speech_wpm=request.speech_wpm
+    )

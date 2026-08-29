@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useLayoutEffect } from 'react'
 import axios from 'axios'
 import {
   FileText, Users, Mic, ScanFace, Upload, TrendingUp, Play,
-  ShieldCheck, Lock, Zap, Sparkles
+  ShieldCheck, Lock, Zap, Sparkles, Code
 } from 'lucide-react'
 import './App.css'
 
@@ -79,6 +79,15 @@ function App() {
   const [imagePreview, setImagePreview] = useState(null)
   const [emotionResult, setEmotionResult] = useState(null)
   const [emotionLoading, setEmotionLoading] = useState(false)
+
+  const [codingRound, setCodingRound] = useState(null)
+  const [roundLoading, setRoundLoading] = useState(false)
+  const [roundLanguage, setRoundLanguage] = useState('python')
+  const [roundCode, setRoundCode] = useState({ easy: '', medium: '', hard: '' })
+  const [roundResults, setRoundResults] = useState({ easy: null, medium: null, hard: null })
+  const [roundSubmitting, setRoundSubmitting] = useState({ easy: false, medium: false, hard: false })
+  const [finalRoundScore, setFinalRoundScore] = useState(null)
+  const [finalRoundLoading, setFinalRoundLoading] = useState(false)
 
   // Measures the main content's top position so the left sidebar can align
   // its top edge exactly with the top of the File 01 card, on any screen.
@@ -252,6 +261,98 @@ function App() {
       alert('Could not analyze speech: ' + error.message)
     } finally {
       setSpeechLoading(false)
+    }
+  }
+
+  const handleStartCodingRound = async () => {
+    setRoundLoading(true)
+    setCodingRound(null)
+    setRoundCode({ easy: '', medium: '', hard: '' })
+    setRoundResults({ easy: null, medium: null, hard: null })
+    setFinalRoundScore(null)
+    try {
+      const response = await axios.get(`${API_BASE}/coding-round`, {
+        params: { role: 'python developer' }
+      })
+      setCodingRound(response.data)
+      const prefill = {}
+      for (const level of ['easy', 'medium', 'hard']) {
+        if (response.data[level]) {
+          prefill[level] = response.data[level].starter_code || ''
+        }
+      }
+      setRoundCode((prev) => ({ ...prev, ...prefill }))
+    } catch (error) {
+      alert('Could not load coding round: ' + error.message)
+    } finally {
+      setRoundLoading(false)
+    }
+  }
+
+  const handleRoundLanguageChange = async (newLanguage) => {
+    setRoundLanguage(newLanguage)
+    if (!codingRound) return
+    for (const level of ['easy', 'medium', 'hard']) {
+      const question = codingRound[level]
+      if (!question) continue
+      try {
+        const response = await axios.get(`${API_BASE}/starter-code`, {
+          params: { question_id: question.id, language: newLanguage }
+        })
+        if (response.data.starter_code) {
+          setRoundCode((prev) => ({ ...prev, [level]: response.data.starter_code }))
+        }
+      } catch (error) {
+        // silently ignore - candidate can still write from scratch
+      }
+    }
+  }
+
+  const handleSubmitRoundCode = async (level) => {
+    const question = codingRound?.[level]
+    const code = roundCode[level]
+    if (!question || !code.trim()) {
+      alert('Write some code for this question first.')
+      return
+    }
+    setRoundSubmitting((prev) => ({ ...prev, [level]: true }))
+    try {
+      const response = await axios.post(`${API_BASE}/submit-code`, {
+        user_code: code,
+        question_id: question.id,
+        language: roundLanguage,
+        role: 'python developer'
+      })
+      setRoundResults((prev) => ({ ...prev, [level]: response.data }))
+    } catch (error) {
+      alert('Could not submit code: ' + error.message)
+    } finally {
+      setRoundSubmitting((prev) => ({ ...prev, [level]: false }))
+    }
+  }
+
+  const handleCalculateFinalScore = async () => {
+    const submissions = ['easy', 'medium', 'hard']
+      .filter((level) => roundResults[level] && !roundResults[level].error)
+      .map((level) => ({
+        difficulty: level,
+        passed: roundResults[level].passed,
+        total: roundResults[level].total
+      }))
+
+    if (submissions.length === 0) {
+      alert('Submit at least one question before calculating the final score.')
+      return
+    }
+
+    setFinalRoundLoading(true)
+    try {
+      const response = await axios.post(`${API_BASE}/score-coding-round`, { submissions })
+      setFinalRoundScore(response.data)
+    } catch (error) {
+      alert('Could not calculate final score: ' + error.message)
+    } finally {
+      setFinalRoundLoading(false)
     }
   }
 
@@ -659,6 +760,149 @@ function App() {
 
             {emotionResult && emotionResult.error && (
               <p className="feedback-line">Error: {emotionResult.error}</p>
+            )}
+          </div>
+        </section>
+
+        {/* ---------- CARD 05 — CODING ROUND ---------- */}
+        <section className="glass-card coding-round-card slide-up" style={{ animationDelay: '0.30s' }}>
+          <div className="card-top-border accent-teal-border" />
+          <div className="card-head">
+            <span className="card-icon icon-teal"><Code size={20} /></span>
+            <div>
+              <span className="card-eyebrow">FILE 05</span>
+              <h2 className="card-title">Coding Round</h2>
+            </div>
+          </div>
+
+          <div className="card-body">
+            <button className="action-btn accent-teal" onClick={handleStartCodingRound} disabled={roundLoading}>
+              {roundLoading && <span className="spinner" />}
+              {!roundLoading && <Play size={14} />}
+              {roundLoading ? 'Preparing round…' : 'Start coding round'}
+            </button>
+
+            {roundLoading && (
+              <div className="loading-panel">
+                <p className="loading-text">PICKING QUESTIONS</p>
+                <div className="loading-row short" />
+                <div className="loading-row full" />
+              </div>
+            )}
+
+            {codingRound && (
+              <div className="interview fade-in">
+                <div className="field">
+                  <label>Language (used for all three)</label>
+                  <select value={roundLanguage} onChange={(e) => handleRoundLanguageChange(e.target.value)}>
+                    <option value="python">Python</option>
+                    <option value="c">C</option>
+                    <option value="cpp">C++</option>
+                    <option value="java">Java</option>
+                    <option value="javascript">JavaScript</option>
+                  </select>
+                </div>
+
+                {['easy', 'medium', 'hard'].map((level) => {
+                  const question = codingRound[level]
+                  if (!question) return null
+                  const result = roundResults[level]
+                  const submitting = roundSubmitting[level]
+
+                  return (
+                    <div key={level} className="round-question-block">
+                      <div className="round-question-head">
+                        <span className={`diff-tag diff-${level}`}>{level}</span>
+                        <h3 className="round-question-title">{question.title}</h3>
+                      </div>
+                      <p className="round-question-desc">{question.description}</p>
+
+                      <div className="code-box-header">
+                        <label>Your solution</label>
+                      </div>
+
+                      <textarea
+                        rows="6"
+                        className="code-box"
+                        placeholder="Write your solution here — read input from stdin, print the answer to stdout..."
+                        value={roundCode[level]}
+                        onChange={(e) => setRoundCode((prev) => ({ ...prev, [level]: e.target.value }))}
+                      />
+
+                      <button
+                        className="action-btn accent-teal round-submit-btn"
+                        onClick={() => handleSubmitRoundCode(level)}
+                        disabled={submitting}
+                      >
+                        {submitting && <span className="spinner" />}
+                        {submitting ? 'Running…' : 'Submit'}
+                      </button>
+
+                      {submitting && (
+                        <div className="loading-panel">
+                          <p className="loading-text">COMPILING &amp; RUNNING</p>
+                          <div className="loading-row full" />
+                        </div>
+                      )}
+
+                      {result && !result.error && (
+                        <div className="round-result">
+                          <div className="code-verdict-row">
+                            <span className={`verdict-tag verdict-${result.verdict?.toLowerCase().replace(/\s+/g, '-')}`}>
+                              {result.verdict}
+                            </span>
+                            <span className="code-pass-count">{result.passed} / {result.total} tests passed</span>
+                          </div>
+
+                          <div className="test-results">
+                            {result.test_results?.map((tr) => (
+                              <div key={tr.test_number} className={`test-row ${tr.passed ? 'test-pass' : 'test-fail'}`}>
+                                <span className="test-num">Test {tr.test_number}</span>
+                                <span className="test-status">{tr.passed ? 'Passed' : 'Failed'}</span>
+                                {!tr.passed && !tr.error && (
+                                  <p className="test-error">Expected: {String(tr.expected)} | Got: {String(tr.actual)}</p>
+                                )}
+                                {!tr.passed && tr.error && (
+                                  <p className="test-error">{tr.error}</p>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {result && result.error && (
+                        <p className="feedback-line">Error: {result.error}</p>
+                      )}
+                    </div>
+                  )
+                })}
+
+                <button className="action-btn accent-purple" onClick={handleCalculateFinalScore} disabled={finalRoundLoading}>
+                  {finalRoundLoading && <span className="spinner" />}
+                  {finalRoundLoading ? 'Calculating…' : 'Calculate final score'}
+                </button>
+
+                {finalRoundScore && !finalRoundScore.error && (
+                  <div className="readout fade-in">
+                    <div className="code-verdict-row">
+                      <span className={`verdict-tag verdict-${finalRoundScore.verdict === 'Strong' ? 'accepted' : finalRoundScore.verdict === 'Moderate' ? 'wrong-answer' : 'failed'}`}>
+                        {finalRoundScore.verdict}
+                      </span>
+                      <span className="code-pass-count">Final score: {finalRoundScore.final_score}%</span>
+                    </div>
+
+                    <div className="test-results">
+                      {finalRoundScore.breakdown?.map((b) => (
+                        <div key={b.difficulty} className="test-row test-pass">
+                          <span className="test-num">{b.difficulty}</span>
+                          <span className="test-status">{b.passed}/{b.total} ({b.score_percent}%)</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
             )}
           </div>
         </section>
