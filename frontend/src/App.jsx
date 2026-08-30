@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useLayoutEffect } from 'react'
 import axios from 'axios'
 import {
   FileText, Users, Mic, ScanFace, Upload, TrendingUp, Play,
-  ShieldCheck, Lock, Zap, Sparkles, Code
+  ShieldCheck, Lock, Zap, Sparkles, Code, Volume2, Timer as TimerIcon
 } from 'lucide-react'
 import './App.css'
 
@@ -67,6 +67,12 @@ function App() {
   const [userAnswer, setUserAnswer] = useState('')
   const [scoreResult, setScoreResult] = useState(null)
   const [interviewLoading, setInterviewLoading] = useState(false)
+  const [answerScoreHistory, setAnswerScoreHistory] = useState([])
+
+  // Per-question countdown timer (mock interview style)
+  const QUESTION_TIME_LIMIT = 90 // seconds
+  const [timeLeft, setTimeLeft] = useState(QUESTION_TIME_LIMIT)
+  const [timerActive, setTimerActive] = useState(false)
 
   const [audioFile, setAudioFile] = useState(null)
   const [audioFileName, setAudioFileName] = useState('')
@@ -89,9 +95,104 @@ function App() {
   const [finalRoundScore, setFinalRoundScore] = useState(null)
   const [finalRoundLoading, setFinalRoundLoading] = useState(false)
 
+  const [readinessResult, setReadinessResult] = useState(null)
+  const [readinessLoading, setReadinessLoading] = useState(false)
+  const [roadmapResult, setRoadmapResult] = useState(null)
+  const [roadmapLoading, setRoadmapLoading] = useState(false)
+
+  // Progress history - stored in the browser (localStorage) so past
+  // sessions' readiness scores can be tracked over time, no backend needed.
+  const [progressHistory, setProgressHistory] = useState([])
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('interview_progress_history')
+      if (saved) setProgressHistory(JSON.parse(saved))
+    } catch (e) {
+      // ignore corrupted storage
+    }
+  }, [])
+
+  const saveProgressEntry = (finalScore, verdict) => {
+    const entry = {
+      date: new Date().toISOString(),
+      score: finalScore,
+      verdict
+    }
+    setProgressHistory((prev) => {
+      const updated = [...prev, entry].slice(-10) // keep last 10 sessions
+      try {
+        localStorage.setItem('interview_progress_history', JSON.stringify(updated))
+      } catch (e) {
+        // storage full or unavailable - ignore
+      }
+      return updated
+    })
+  }
+
+  const handleClearProgressHistory = () => {
+    localStorage.removeItem('interview_progress_history')
+    setProgressHistory([])
+  }
+
   // Measures the main content's top position so the left sidebar can align
   // its top edge exactly with the top of the File 01 card, on any screen.
+  // Countdown timer for the current interview question - ticks down
+  // every second while active, and stops (without penalty) at zero.
+  useEffect(() => {
+    if (!timerActive || timeLeft <= 0) return
+    const interval = setInterval(() => {
+      setTimeLeft((t) => Math.max(0, t - 1))
+    }, 1000)
+    return () => clearInterval(interval)
+  }, [timerActive, timeLeft])
+
+  const handleSpeakQuestion = (text) => {
+    if (!window.speechSynthesis) {
+      alert('Text-to-speech is not supported in this browser.')
+      return
+    }
+    window.speechSynthesis.cancel() // stop any previous speech
+    const utterance = new SpeechSynthesisUtterance(text)
+    utterance.rate = 0.95
+    window.speechSynthesis.speak(utterance)
+  }
+
   const mainRef = useRef(null)
+  const rehearsalSectionRef = useRef(null)
+  const sessionSummaryRef = useRef(null)
+  const progressHistoryRef = useRef(null)
+
+  const scrollToSection = (ref) => {
+    if (!ref.current) return
+    const targetY = ref.current.getBoundingClientRect().top + window.scrollY - 24
+    window.scrollTo({ top: targetY, behavior: 'smooth' })
+
+    // Visual confirmation: flash a highlight glow on the target card so
+    // it's obvious the click actually did something.
+    const el = ref.current
+    el.classList.add('section-highlight')
+    setTimeout(() => {
+      el.classList.remove('section-highlight')
+    }, 1600)
+  }
+
+  const handleTrackProgressClick = () => {
+    if (progressHistoryRef.current) {
+      scrollToSection(progressHistoryRef)
+    } else {
+      scrollToSection(sessionSummaryRef)
+      alert('No progress history yet — click "Generate readiness report" below to start tracking your sessions.')
+    }
+  }
+
+  const handleSecurePrivacyClick = () => {
+    alert(
+      'Privacy note: all analysis (resume parsing, speech, emotion, code execution) ' +
+      'runs on your own machine via the local backend. Nothing is uploaded to an ' +
+      'external server, and your progress history is stored only in this browser.'
+    )
+  }
   const [sidebarTop, setSidebarTop] = useState(280)
 
   useLayoutEffect(() => {
@@ -156,6 +257,7 @@ function App() {
     setInterviewLoading(true)
     setScoreResult(null)
     setUserAnswer('')
+    setAnswerScoreHistory([])
     try {
       const response = await axios.get(`${API_BASE}/questions`, {
         params: { role, category: 'technical', count: 5 }
@@ -165,6 +267,8 @@ function App() {
       } else {
         setQuestions(response.data.questions)
         setCurrentQIndex(0)
+        setTimeLeft(QUESTION_TIME_LIMIT)
+        setTimerActive(true)
       }
     } catch (error) {
       alert('Could not load questions: ' + error.message)
@@ -180,6 +284,7 @@ function App() {
     }
     const currentQuestion = questions[currentQIndex]
     setInterviewLoading(true)
+    setTimerActive(false)
     try {
       const response = await axios.post(`${API_BASE}/score-answer`, {
         user_answer: userAnswer,
@@ -187,6 +292,7 @@ function App() {
         keywords: currentQuestion.keywords
       })
       setScoreResult(response.data)
+      setAnswerScoreHistory((prev) => [...prev, response.data.final_score])
     } catch (error) {
       alert('Could not score answer: ' + error.message)
     } finally {
@@ -199,6 +305,8 @@ function App() {
       setCurrentQIndex(currentQIndex + 1)
       setUserAnswer('')
       setScoreResult(null)
+      setTimeLeft(QUESTION_TIME_LIMIT)
+      setTimerActive(true)
     }
   }
 
@@ -356,6 +464,50 @@ function App() {
     }
   }
 
+  const handleGenerateReadinessReport = async () => {
+    setReadinessLoading(true)
+    setRoadmapLoading(true)
+    setReadinessResult(null)
+    setRoadmapResult(null)
+
+    const skillMatch = resumeResult?.skill_gap_analysis?.match_percentage ?? null
+    const missingSkills = resumeResult?.skill_gap_analysis?.missing_skills ?? null
+    const speechWpm = speechResult?.speaking_pace?.wpm ?? null
+    const fillerRatio = speechResult?.filler_analysis?.filler_ratio_percent ?? null
+    const dominantEmotion = emotionResult?.dominant_emotion ?? null
+
+    try {
+      const readinessResponse = await axios.post(`${API_BASE}/predict-readiness`, {
+        skill_match_percent: skillMatch,
+        answer_scores: answerScoreHistory.length > 0 ? answerScoreHistory : null,
+        speech_wpm: speechWpm,
+        filler_ratio: fillerRatio,
+        dominant_emotion: dominantEmotion
+      })
+      setReadinessResult(readinessResponse.data)
+
+      if (!readinessResponse.data.error) {
+        saveProgressEntry(readinessResponse.data.final_score, readinessResponse.data.verdict)
+      }
+
+      if (!readinessResponse.data.error) {
+        const roadmapResponse = await axios.post(`${API_BASE}/generate-roadmap`, {
+          missing_skills: missingSkills,
+          weakest_area: readinessResponse.data.weakest_area,
+          component_scores: readinessResponse.data.component_scores,
+          filler_ratio: fillerRatio,
+          speech_wpm: speechWpm
+        })
+        setRoadmapResult(roadmapResponse.data)
+      }
+    } catch (error) {
+      alert('Could not generate report: ' + error.message)
+    } finally {
+      setReadinessLoading(false)
+      setRoadmapLoading(false)
+    }
+  }
+
   const scoreVal = scoreResult ? Math.round(scoreResult.final_score) : 0
   const matchVal = resumeResult ? Math.round(resumeResult.skill_gap_analysis?.match_percentage || 0) : 0
 
@@ -396,28 +548,28 @@ function App() {
 
       {showSidebar && (
       <aside className="feature-strip glass slide-up" style={{ animationDelay: '0.32s', top: Math.max(sidebarTop - scrollY, 14) }}>
-        <div className="feature-item">
+        <div className="feature-item" onClick={() => scrollToSection(sessionSummaryRef)}>
           <span className="feature-icon icon-teal"><ShieldCheck size={18} /></span>
           <div>
             <p className="feature-title">AI-Powered Insights</p>
             <p className="feature-sub">Smart analysis &amp; feedback</p>
           </div>
         </div>
-        <div className="feature-item">
+        <div className="feature-item" onClick={handleSecurePrivacyClick}>
           <span className="feature-icon icon-purple"><Lock size={18} /></span>
           <div>
             <p className="feature-title">Secure &amp; Private</p>
             <p className="feature-sub">Your data stays on your machine</p>
           </div>
         </div>
-        <div className="feature-item">
+        <div className="feature-item" onClick={handleTrackProgressClick}>
           <span className="feature-icon icon-amber"><TrendingUp size={18} /></span>
           <div>
             <p className="feature-title">Track Progress</p>
             <p className="feature-sub">Monitor your improvement</p>
           </div>
         </div>
-        <div className="feature-item">
+        <div className="feature-item" onClick={() => scrollToSection(rehearsalSectionRef)}>
           <span className="feature-icon icon-blue"><Zap size={18} /></span>
           <div>
             <p className="feature-title">Boost Confidence</p>
@@ -524,7 +676,7 @@ function App() {
         </section>
 
         {/* ---------- CARD 02 — INTERVIEW ---------- */}
-        <section className="glass-card slide-up" style={{ animationDelay: '0.12s' }}>
+        <section className="glass-card slide-up" ref={rehearsalSectionRef} style={{ animationDelay: '0.12s' }}>
           <div className="card-top-border accent-purple-border" />
           <div className="card-head">
             <span className="card-icon icon-purple"><Users size={20} /></span>
@@ -554,12 +706,25 @@ function App() {
               <div className="interview fade-in">
                 <div className="q-meta">
                   <span className="q-count">{String(currentQIndex + 1).padStart(2, '0')} / {String(questions.length).padStart(2, '0')}</span>
+                  <span className={`timer-tag ${timeLeft <= 15 ? 'timer-urgent' : ''}`}>
+                    <TimerIcon size={13} /> {Math.floor(timeLeft / 60)}:{String(timeLeft % 60).padStart(2, '0')}
+                  </span>
                   <span className={`diff-tag diff-${questions[currentQIndex].difficulty}`}>
                     {questions[currentQIndex].difficulty}
                   </span>
                 </div>
 
-                <p className="question-text">{questions[currentQIndex].question}</p>
+                <div className="question-row">
+                  <p className="question-text">{questions[currentQIndex].question}</p>
+                  <button
+                    type="button"
+                    className="speak-btn"
+                    onClick={() => handleSpeakQuestion(questions[currentQIndex].question)}
+                    title="Read question aloud"
+                  >
+                    <Volume2 size={16} />
+                  </button>
+                </div>
 
                 <textarea
                   rows="5"
@@ -901,6 +1066,160 @@ function App() {
                       ))}
                     </div>
                   </div>
+                )}
+              </div>
+            )}
+          </div>
+        </section>
+
+        {/* ---------- CARD 06 — SESSION SUMMARY ---------- */}
+        <section className="glass-card coding-round-card slide-up" ref={sessionSummaryRef} style={{ animationDelay: '0.35s' }}>
+          <div className="card-top-border accent-purple-border" />
+          <div className="card-head">
+            <span className="card-icon icon-purple"><Sparkles size={20} /></span>
+            <div>
+              <span className="card-eyebrow">FILE 06</span>
+              <h2 className="card-title">Session Summary &amp; Roadmap</h2>
+            </div>
+          </div>
+
+          <div className="card-body">
+            <p className="feedback-line" style={{ marginBottom: 16 }}>
+              Combines whatever you've completed so far (resume match, interview answers,
+              voice delivery, composure) into one overall readiness verdict and a
+              personalized study plan.
+            </p>
+
+            <button className="action-btn accent-purple" onClick={handleGenerateReadinessReport} disabled={readinessLoading}>
+              {readinessLoading && <span className="spinner" />}
+              {!readinessLoading && <Sparkles size={14} />}
+              {readinessLoading ? 'Analyzing session…' : 'Generate readiness report'}
+            </button>
+
+            {readinessLoading && (
+              <div className="loading-panel">
+                <p className="loading-text">COMBINING SIGNALS</p>
+                <div className="loading-row short" />
+                <div className="loading-row medium" />
+                <div className="loading-row full" />
+              </div>
+            )}
+
+            {readinessResult && readinessResult.error && (
+              <p className="feedback-line">{readinessResult.error} Complete at least one module above (resume, interview, voice, or composure) first.</p>
+            )}
+
+            {readinessResult && !readinessResult.error && (
+              <div className="readout fade-in">
+                <div className="score-readout">
+                  <div className="score-number-wrap">
+                    <div className="score-number"><AnimatedNumber value={readinessResult.final_score} /><span>/100</span></div>
+                    {readinessResult.final_score >= 80 && <Confetti />}
+                  </div>
+                  <div className="score-detail">
+                    <span className={`verdict-tag verdict-${readinessResult.verdict === 'Ready' ? 'accepted' : readinessResult.verdict === 'Needs Practice' ? 'wrong-answer' : 'failed'}`}>
+                      {readinessResult.verdict}
+                    </span>
+                    <p className="feedback-line" style={{ marginTop: 8 }}>{readinessResult.summary}</p>
+                  </div>
+                </div>
+
+                <div className="component-scores-grid">
+                  {Object.entries(readinessResult.component_scores || {})
+                    .sort((a, b) => a[1] - b[1])
+                    .map(([key, value]) => {
+                      const severity = value >= 75 ? 'strong' : value >= 55 ? 'moderate' : 'weak'
+                      return (
+                        <div key={key} className={`component-score-card severity-${severity}`}>
+                          <div className="component-score-label">{key.replace(/_/g, ' ')}</div>
+                          <div className="component-score-value">{value}</div>
+                          <div className={`component-score-tag tag-${severity}`}>
+                            {severity === 'strong' ? 'Strong' : severity === 'moderate' ? 'Needs Work' : 'Weakest'}
+                          </div>
+                        </div>
+                      )
+                    })}
+                </div>
+
+                {roadmapLoading && (
+                  <div className="loading-panel">
+                    <p className="loading-text">BUILDING ROADMAP</p>
+                    <div className="loading-row full" />
+                  </div>
+                )}
+
+                {roadmapResult && (
+                  <div className="roadmap-section">
+                    <p className="roadmap-priority">🎯 Priority: {roadmapResult.priority_focus}</p>
+
+                    {roadmapResult.skill_gaps?.length > 0 && (
+                      <div className="roadmap-block">
+                        <div className="chip-heading">skills to close</div>
+                        {roadmapResult.skill_gaps.map((item) => (
+                          <div key={item.skill} className="roadmap-item">
+                            <span className="chip chip-gap">{item.skill}</span>
+                            <span className="roadmap-item-text">{item.action}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {roadmapResult.interview_technique?.length > 0 && (
+                      <div className="roadmap-block">
+                        <div className="chip-heading">interview technique</div>
+                        {roadmapResult.interview_technique.map((tip, i) => (
+                          <p key={i} className="roadmap-tip">• {tip}</p>
+                        ))}
+                      </div>
+                    )}
+
+                    {roadmapResult.communication?.length > 0 && (
+                      <div className="roadmap-block">
+                        <div className="chip-heading">communication</div>
+                        {roadmapResult.communication.map((tip, i) => (
+                          <p key={i} className="roadmap-tip">• {tip}</p>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {progressHistory.length > 0 && (
+              <div className="progress-history-section" ref={progressHistoryRef}>
+                <div className="progress-history-head">
+                  <div className="chip-heading">progress history (last {progressHistory.length} sessions)</div>
+                  <button type="button" className="clear-history-btn" onClick={handleClearProgressHistory}>
+                    Clear
+                  </button>
+                </div>
+
+                <div className="progress-bars">
+                  {progressHistory.map((entry, i) => (
+                    <div key={i} className="progress-bar-row">
+                      <span className="progress-bar-label">
+                        {new Date(entry.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                      </span>
+                      <div className="progress-bar-track">
+                        <div
+                          className={`progress-bar-fill progress-${entry.score >= 75 ? 'strong' : entry.score >= 55 ? 'moderate' : 'weak'}`}
+                          style={{ width: `${entry.score}%` }}
+                        />
+                      </div>
+                      <span className="progress-bar-value">{entry.score}</span>
+                    </div>
+                  ))}
+                </div>
+
+                {progressHistory.length >= 2 && (
+                  <p className="feedback-line" style={{ marginTop: 10 }}>
+                    {progressHistory[progressHistory.length - 1].score > progressHistory[0].score
+                      ? `📈 Improved by ${(progressHistory[progressHistory.length - 1].score - progressHistory[0].score).toFixed(1)} points since your first session.`
+                      : progressHistory[progressHistory.length - 1].score < progressHistory[0].score
+                        ? `📉 Down ${(progressHistory[0].score - progressHistory[progressHistory.length - 1].score).toFixed(1)} points since your first session - keep practicing.`
+                        : `Your score has stayed steady across sessions.`}
+                  </p>
                 )}
               </div>
             )}
