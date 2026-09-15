@@ -68,6 +68,11 @@ QUESTION_IO_META = {
     "fibonacci_nth": {"pattern": "single_int", "output": "raw"},
     "is_prime": {"pattern": "single_int", "output": "yesno"},
     "longest_common_subsequence": {"pattern": "two_lines", "output": "raw"},
+    "url_slug_validator": {"pattern": "line_text", "output": "yesno"},
+    "query_param_parser": {"pattern": "line_text", "output": "raw"},
+    "http_status_category": {"pattern": "single_int", "output": "raw"},
+    "sql_where_counter": {"pattern": "line_text", "output": "raw"},
+    "docker_image_tag_validator": {"pattern": "line_text", "output": "yesno"},
 }
 
 # Coding question bank - each test case is defined as raw stdin text and
@@ -82,6 +87,7 @@ CODING_QUESTIONS = {
                 "its reverse to standard output."
             ),
             "difficulty": "easy",
+            "tags": ["strings", "python"],
             "test_cases": [
                 {"stdin": "hello\n", "expected": "olleh"},
                 {"stdin": "Python\n", "expected": "nohtyP"},
@@ -98,6 +104,7 @@ CODING_QUESTIONS = {
                 "resulting array. Print 0 if no such subarray exists."
             ),
             "difficulty": "medium",
+            "tags": ["arrays", "data structures", "algorithms"],
             "test_cases": [
                 {"stdin": "1 1 0 1\n", "expected": "3"},
                 {"stdin": "0 1 1 1 0 1 1 0 1\n", "expected": "5"},
@@ -111,6 +118,7 @@ CODING_QUESTIONS = {
                 "print their sum."
             ),
             "difficulty": "easy",
+            "tags": ["math"],
             "test_cases": [
                 {"stdin": "3 5\n", "expected": "8"},
                 {"stdin": "10 -2\n", "expected": "8"},
@@ -125,6 +133,7 @@ CODING_QUESTIONS = {
                 "the number of vowels (a, e, i, o, u) it contains."
             ),
             "difficulty": "medium",
+            "tags": ["strings", "python"],
             "test_cases": [
                 {"stdin": "hello world\n", "expected": "3"},
                 {"stdin": "python\n", "expected": "1"},
@@ -139,6 +148,7 @@ CODING_QUESTIONS = {
                 "forwards and backwards, otherwise print 'no'."
             ),
             "difficulty": "easy",
+            "tags": ["strings"],
             "test_cases": [
                 {"stdin": "madam\n", "expected": "yes"},
                 {"stdin": "hello\n", "expected": "no"},
@@ -153,6 +163,7 @@ CODING_QUESTIONS = {
                 "largest one."
             ),
             "difficulty": "easy",
+            "tags": ["arrays", "data structures"],
             "test_cases": [
                 {"stdin": "3 7 2 9 4\n", "expected": "9"},
                 {"stdin": "-5 -1 -8\n", "expected": "-1"},
@@ -166,6 +177,7 @@ CODING_QUESTIONS = {
                 "Read an integer n and print n! (n factorial)."
             ),
             "difficulty": "easy",
+            "tags": ["math", "recursion"],
             "test_cases": [
                 {"stdin": "5\n", "expected": "120"},
                 {"stdin": "0\n", "expected": "1"},
@@ -180,6 +192,7 @@ CODING_QUESTIONS = {
                 "(0-indexed: fib(0)=0, fib(1)=1)."
             ),
             "difficulty": "medium",
+            "tags": ["math", "recursion", "dynamic programming"],
             "test_cases": [
                 {"stdin": "6\n", "expected": "8"},
                 {"stdin": "0\n", "expected": "0"},
@@ -194,6 +207,7 @@ CODING_QUESTIONS = {
                 "otherwise print 'no'."
             ),
             "difficulty": "easy",
+            "tags": ["math"],
             "test_cases": [
                 {"stdin": "7\n", "expected": "yes"},
                 {"stdin": "10\n", "expected": "no"},
@@ -208,6 +222,7 @@ CODING_QUESTIONS = {
                 "many distinct values it contains."
             ),
             "difficulty": "easy",
+            "tags": ["arrays", "data structures", "sql"],
             "test_cases": [
                 {"stdin": "1 2 2 3 3 3\n", "expected": "3"},
                 {"stdin": "5 5 5\n", "expected": "1"},
@@ -222,6 +237,7 @@ CODING_QUESTIONS = {
                 "reverse order, space-separated."
             ),
             "difficulty": "medium",
+            "tags": ["strings"],
             "test_cases": [
                 {"stdin": "the sky is blue\n", "expected": "blue is sky the"},
                 {"stdin": "hello world\n", "expected": "world hello"},
@@ -235,6 +251,7 @@ CODING_QUESTIONS = {
                 "greatest common divisor."
             ),
             "difficulty": "medium",
+            "tags": ["math", "recursion"],
             "test_cases": [
                 {"stdin": "12 18\n", "expected": "6"},
                 {"stdin": "7 13\n", "expected": "1"},
@@ -249,6 +266,7 @@ CODING_QUESTIONS = {
                 "second largest distinct value."
             ),
             "difficulty": "medium",
+            "tags": ["arrays", "data structures"],
             "test_cases": [
                 {"stdin": "3 7 2 9 4\n", "expected": "7"},
                 {"stdin": "1 1 2\n", "expected": "1"},
@@ -262,6 +280,7 @@ CODING_QUESTIONS = {
                 "of the longest common subsequence between them."
             ),
             "difficulty": "hard",
+            "tags": ["strings", "dynamic programming", "algorithms"],
             "test_cases": [
                 {"stdin": "abcde\nace\n", "expected": "3"},
                 {"stdin": "abc\nabc\n", "expected": "3"},
@@ -277,6 +296,7 @@ CODING_QUESTIONS = {
                 "contiguous subarray."
             ),
             "difficulty": "hard",
+            "tags": ["arrays", "dynamic programming", "algorithms"],
             "test_cases": [
                 {"stdin": "-2 1 -3 4 -1 2 1 -5 4\n", "expected": "6"},
                 {"stdin": "1 2 3 4\n", "expected": "10"},
@@ -292,11 +312,139 @@ CODING_QUESTIONS = {
                 "nested, otherwise print 'no'."
             ),
             "difficulty": "hard",
+            "tags": ["strings", "data structures", "algorithms"],
             "test_cases": [
                 {"stdin": "()[]{}\n", "expected": "yes"},
                 {"stdin": "(]\n", "expected": "no"},
                 {"stdin": "([{}])\n", "expected": "yes"},
                 {"stdin": "(]\n", "expected": "no"},
+            ]
+        },
+        {
+            "id": "url_slug_validator",
+            "title": "Valid URL Slug",
+            "description": (
+                "Read a line of text. Print 'yes' if it is a valid URL "
+                "slug (only lowercase letters, digits, and hyphens, and it "
+                "does not start or end with a hyphen), otherwise print 'no'. "
+                "This mirrors slug validation commonly used in web "
+                "frameworks like Django when generating clean URLs."
+            ),
+            "difficulty": "easy",
+            "tags": ["strings", "web", "django"],
+            "test_cases": [
+                {"stdin": "my-blog-post\n", "expected": "yes"},
+                {"stdin": "-bad-slug\n", "expected": "no"},
+                {"stdin": "Not_Valid!\n", "expected": "no"},
+            ]
+        },
+        {
+            "id": "query_param_parser",
+            "title": "Parse Query String Parameters",
+            "description": (
+                "Read a line representing a URL query string (e.g. "
+                "'name=John&age=25'). Print the number of key-value pairs "
+                "it contains. This reflects request-parsing logic commonly "
+                "handled by web frameworks and REST APIs."
+            ),
+            "difficulty": "medium",
+            "tags": ["strings", "web", "rest api", "django", "fastapi"],
+            "test_cases": [
+                {"stdin": "name=John&age=25\n", "expected": "2"},
+                {"stdin": "a=1\n", "expected": "1"},
+                {"stdin": "a=1&b=2&c=3&d=4\n", "expected": "4"},
+            ]
+        },
+        {
+            "id": "http_status_category",
+            "title": "HTTP Status Code Category",
+            "description": (
+                "Read an integer HTTP status code and print its category: "
+                "'informational' (1xx), 'success' (2xx), 'redirect' (3xx), "
+                "'client error' (4xx), or 'server error' (5xx)."
+            ),
+            "difficulty": "easy",
+            "tags": ["web", "rest api", "fastapi", "django"],
+            "test_cases": [
+                {"stdin": "200\n", "expected": "success"},
+                {"stdin": "404\n", "expected": "client error"},
+                {"stdin": "500\n", "expected": "server error"},
+            ]
+        },
+        {
+            "id": "merge_sorted_arrays",
+            "title": "Merge Two Sorted Arrays",
+            "description": (
+                "Read two lines, each a space-separated list of sorted "
+                "integers. Print the merged result as a single sorted, "
+                "space-separated list."
+            ),
+            "difficulty": "medium",
+            "tags": ["arrays", "algorithms", "data structures"],
+            "test_cases": [
+                {"stdin": "1 3 5\n2 4 6\n", "expected": "1 2 3 4 5 6"},
+                {"stdin": "1 2 3\n\n", "expected": "1 2 3"},
+            ]
+        },
+        {
+            "id": "binary_search",
+            "title": "Binary Search",
+            "description": (
+                "Read a line of sorted space-separated integers, then a "
+                "second line with a target integer. Print the index "
+                "(0-based) of the target if found, otherwise print -1."
+            ),
+            "difficulty": "medium",
+            "tags": ["arrays", "algorithms", "data structures"],
+            "test_cases": [
+                {"stdin": "1 3 5 7 9\n5\n", "expected": "2"},
+                {"stdin": "1 3 5 7 9\n4\n", "expected": "-1"},
+            ]
+        },
+        {
+            "id": "docker_image_tag_validator",
+            "title": "Valid Docker Image Tag",
+            "description": (
+                "Read a line of text. Print 'yes' if it is a valid Docker "
+                "image tag (only lowercase letters, digits, dots, "
+                "underscores, and hyphens, max 128 characters), otherwise "
+                "print 'no'."
+            ),
+            "difficulty": "medium",
+            "tags": ["strings", "docker", "devops"],
+            "test_cases": [
+                {"stdin": "my-app_v1.0\n", "expected": "yes"},
+                {"stdin": "My App!\n", "expected": "no"},
+            ]
+        },
+        {
+            "id": "sql_where_counter",
+            "title": "Count SQL WHERE Conditions",
+            "description": (
+                "Read a line representing the conditions after a SQL WHERE "
+                "clause, joined by 'AND' (e.g. 'age > 18 AND active = 1'). "
+                "Print how many individual conditions are present."
+            ),
+            "difficulty": "easy",
+            "tags": ["sql", "strings"],
+            "test_cases": [
+                {"stdin": "age > 18 AND active = 1\n", "expected": "2"},
+                {"stdin": "id = 5\n", "expected": "1"},
+            ]
+        },
+        {
+            "id": "matrix_transpose",
+            "title": "Matrix Transpose",
+            "description": (
+                "Read an integer n, then n lines each with n "
+                "space-separated integers (an n x n matrix). Print the "
+                "transposed matrix, one row per line, space-separated."
+            ),
+            "difficulty": "hard",
+            "tags": ["arrays", "algorithms", "math"],
+            "test_cases": [
+                {"stdin": "2\n1 2\n3 4\n", "expected": "1 3\n2 4"},
+                {"stdin": "1\n5\n", "expected": "5"},
             ]
         },
     ]
@@ -506,29 +654,51 @@ def list_coding_questions(role: str, count: int = 5) -> list:
     ]
 
 
-def get_coding_round(role: str = "python developer") -> dict:
+def get_coding_round(role: str = "python developer", skills: list = None) -> dict:
     """
-    Builds one full coding round: a random Easy, Medium, and Hard question,
-    picked automatically so nobody has to curate a set by hand. If a
-    difficulty level has no questions available, it's simply skipped.
+    Builds one full coding round: a random Easy, Medium, and Hard question.
+
+    If a list of skills is provided (e.g. extracted from a resume/JD via
+    the skill-gap analysis), this prefers questions whose tags overlap
+    with those skills - so a candidate whose JD mentions "Django" or
+    "SQL" is more likely to see a coding question themed around that
+    area. If no skill match is found for a difficulty level, it falls
+    back to a plain random pick from that level, so a round is always
+    produced.
 
     Returns a dict keyed by difficulty, each with id/title/description.
     """
     role = role.lower().strip()
     questions = CODING_QUESTIONS.get(role, CODING_QUESTIONS["python developer"])
+    normalized_skills = set(s.lower().strip() for s in skills) if skills else set()
 
     round_set = {}
     for level in ["easy", "medium", "hard"]:
         pool = [q for q in questions if q["difficulty"] == level]
-        if pool:
+        if not pool:
+            continue
+
+        chosen = None
+        if normalized_skills:
+            matched_pool = [
+                q for q in pool
+                if normalized_skills.intersection(set(tag.lower() for tag in q.get("tags", [])))
+            ]
+            if matched_pool:
+                chosen = random.choice(matched_pool)
+
+        if chosen is None:
             chosen = random.choice(pool)
-            round_set[level] = {
-                "id": chosen["id"],
-                "title": chosen["title"],
-                "description": chosen["description"],
-                "difficulty": chosen["difficulty"],
-                "starter_code": get_starter_code(chosen["id"], "python").get("starter_code", "")
-            }
+
+        round_set[level] = {
+            "id": chosen["id"],
+            "title": chosen["title"],
+            "description": chosen["description"],
+            "difficulty": chosen["difficulty"],
+            "tags": chosen.get("tags", []),
+            "matched_to_skills": bool(normalized_skills.intersection(set(tag.lower() for tag in chosen.get("tags", [])))),
+            "starter_code": get_starter_code(chosen["id"], "python").get("starter_code", "")
+        }
 
     return round_set
 

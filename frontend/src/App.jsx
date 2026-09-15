@@ -2,8 +2,10 @@ import { useState, useEffect, useRef, useLayoutEffect } from 'react'
 import axios from 'axios'
 import {
   FileText, Users, Mic, ScanFace, Upload, TrendingUp, Play,
-  ShieldCheck, Lock, Zap, Sparkles, Code, Volume2, Timer as TimerIcon
+  ShieldCheck, Lock, Zap, Sparkles, Code, Volume2, Timer as TimerIcon,
+  Camera, Square, Circle, Download
 } from 'lucide-react'
+import jsPDF from 'jspdf'
 import './App.css'
 
 const API_BASE = 'http://127.0.0.1:8000'
@@ -159,9 +161,45 @@ function App() {
   }
 
   const mainRef = useRef(null)
+  const resumeSectionRef = useRef(null)
   const rehearsalSectionRef = useRef(null)
+  const voiceSectionRef = useRef(null)
+  const composureSectionRef = useRef(null)
   const sessionSummaryRef = useRef(null)
   const progressHistoryRef = useRef(null)
+
+  // ---------- GUIDED MOCK INTERVIEW WIZARD ----------
+  const WIZARD_STEPS = [
+    { ref: 'resumeSectionRef', label: 'Resume & Role Fit' },
+    { ref: 'rehearsalSectionRef', label: 'Rehearsal Room' },
+    { ref: 'voiceSectionRef', label: 'Voice Assessment' },
+    { ref: 'composureSectionRef', label: 'Composure Check' },
+    { ref: 'sessionSummaryRef', label: 'Session Summary & Report' },
+  ]
+  const wizardRefs = { resumeSectionRef, rehearsalSectionRef, voiceSectionRef, composureSectionRef, sessionSummaryRef }
+  const [wizardActive, setWizardActive] = useState(false)
+  const [wizardStep, setWizardStep] = useState(0)
+
+  const handleStartWizard = () => {
+    setWizardActive(true)
+    setWizardStep(0)
+    scrollToSection(wizardRefs[WIZARD_STEPS[0].ref])
+  }
+
+  const handleWizardNext = () => {
+    const nextStep = wizardStep + 1
+    if (nextStep >= WIZARD_STEPS.length) {
+      handleGenerateReadinessReport()
+      setWizardActive(false)
+      return
+    }
+    setWizardStep(nextStep)
+    scrollToSection(wizardRefs[WIZARD_STEPS[nextStep].ref])
+  }
+
+  const handleWizardExit = () => {
+    setWizardActive(false)
+  }
 
   const scrollToSection = (ref) => {
     if (!ref.current) return
@@ -329,6 +367,99 @@ function App() {
     setImagePreview(file ? URL.createObjectURL(file) : null)
   }
 
+  // ---------- LIVE AUDIO RECORDING ----------
+  const mediaRecorderRef = useRef(null)
+  const audioChunksRef = useRef([])
+  const recordingStartRef = useRef(null)
+  const recordingTimerRef = useRef(null)
+  const [isRecordingAudio, setIsRecordingAudio] = useState(false)
+  const [recordingElapsed, setRecordingElapsed] = useState(0)
+
+  const handleStartAudioRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      const recorder = new MediaRecorder(stream)
+      audioChunksRef.current = []
+
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) audioChunksRef.current.push(e.data)
+      }
+
+      recorder.onstop = () => {
+        const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' })
+        const file = new File([blob], 'recording.webm', { type: 'audio/webm' })
+        const durationSeconds = Math.max(1, Math.round((Date.now() - recordingStartRef.current) / 1000))
+        setAudioFile(file)
+        setAudioFileName(`Recorded answer (${durationSeconds}s)`)
+        setAudioDuration(String(durationSeconds))
+        stream.getTracks().forEach((track) => track.stop())
+      }
+
+      mediaRecorderRef.current = recorder
+      recordingStartRef.current = Date.now()
+      recorder.start()
+      setIsRecordingAudio(true)
+      setRecordingElapsed(0)
+      recordingTimerRef.current = setInterval(() => {
+        setRecordingElapsed(Math.round((Date.now() - recordingStartRef.current) / 1000))
+      }, 500)
+    } catch (error) {
+      alert('Could not access microphone: ' + error.message)
+    }
+  }
+
+  const handleStopAudioRecording = () => {
+    mediaRecorderRef.current?.stop()
+    setIsRecordingAudio(false)
+    clearInterval(recordingTimerRef.current)
+  }
+
+  // ---------- LIVE WEBCAM CAPTURE ----------
+  const videoRef = useRef(null)
+  const cameraStreamRef = useRef(null)
+  const [cameraActive, setCameraActive] = useState(false)
+
+  const handleStartCamera = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true })
+      cameraStreamRef.current = stream
+      setCameraActive(true)
+    } catch (error) {
+      alert('Could not access camera: ' + error.message)
+    }
+  }
+
+  // Attaches the camera stream to the <video> element only after it has
+  // actually mounted (cameraActive becoming true triggers this render),
+  // which is more reliable than trying to do it immediately on click.
+  useEffect(() => {
+    if (cameraActive && videoRef.current && cameraStreamRef.current) {
+      videoRef.current.srcObject = cameraStreamRef.current
+      videoRef.current.play().catch(() => {})
+    }
+  }, [cameraActive])
+
+  const handleStopCamera = () => {
+    cameraStreamRef.current?.getTracks().forEach((track) => track.stop())
+    setCameraActive(false)
+  }
+
+  const handleCapturePhoto = () => {
+    if (!videoRef.current) return
+    const canvas = document.createElement('canvas')
+    canvas.width = videoRef.current.videoWidth
+    canvas.height = videoRef.current.videoHeight
+    const ctx = canvas.getContext('2d')
+    ctx.drawImage(videoRef.current, 0, 0)
+    canvas.toBlob((blob) => {
+      const file = new File([blob], 'webcam_capture.jpg', { type: 'image/jpeg' })
+      setImageFile(file)
+      setImageFileName('Captured from webcam')
+      setImagePreview(URL.createObjectURL(blob))
+      handleStopCamera()
+    }, 'image/jpeg')
+  }
+
   const handleAnalyzeEmotion = async () => {
     if (!imageFile) {
       alert('Choose a photo first.')
@@ -379,8 +510,15 @@ function App() {
     setRoundResults({ easy: null, medium: null, hard: null })
     setFinalRoundScore(null)
     try {
+      // Pull skills from the resume/JD analysis (if the candidate has run
+      // it) so the coding round can be themed around relevant topics.
+      const matched = resumeResult?.skill_gap_analysis?.matched_skills || []
+      const missing = resumeResult?.skill_gap_analysis?.missing_skills || []
+      const jdSkills = [...matched, ...missing]
+      const skillsParam = jdSkills.length > 0 ? jdSkills.join(',') : undefined
+
       const response = await axios.get(`${API_BASE}/coding-round`, {
-        params: { role: 'python developer' }
+        params: { role: 'python developer', skills: skillsParam }
       })
       setCodingRound(response.data)
       const prefill = {}
@@ -508,6 +646,123 @@ function App() {
     }
   }
 
+  const handleDownloadPdfReport = () => {
+    if (!readinessResult || readinessResult.error) {
+      alert('Generate a readiness report first.')
+      return
+    }
+
+    const doc = new jsPDF({ unit: 'pt', format: 'a4' })
+    const pageWidth = doc.internal.pageSize.getWidth()
+    const margin = 48
+    const maxWidth = pageWidth - margin * 2
+    let y = margin
+
+    const addLine = (text, size = 11, bold = false, color = [40, 44, 60]) => {
+      if (y > 760) {
+        doc.addPage()
+        y = margin
+      }
+      doc.setFont('helvetica', bold ? 'bold' : 'normal')
+      doc.setFontSize(size)
+      doc.setTextColor(...color)
+      const lines = doc.splitTextToSize(text, maxWidth)
+      doc.text(lines, margin, y)
+      y += lines.length * (size + 4)
+    }
+
+    const addGap = (h = 10) => { y += h }
+
+    // ---- Header ----
+    addLine('Interview Readiness Report', 22, true, [27, 31, 46])
+    addLine(`Generated on ${new Date().toLocaleString()}`, 10, false, [120, 126, 145])
+    addGap(14)
+
+    // ---- Overall Verdict ----
+    addLine('Overall Assessment', 14, true, [124, 92, 245])
+    addLine(`Final Score: ${readinessResult.final_score} / 100`, 12, true)
+    addLine(`Verdict: ${readinessResult.verdict}`, 12, true)
+    addLine(readinessResult.summary, 11)
+    addGap(14)
+
+    // ---- Component Breakdown ----
+    addLine('Component Breakdown', 14, true, [124, 92, 245])
+    Object.entries(readinessResult.component_scores || {})
+      .sort((a, b) => a[1] - b[1])
+      .forEach(([key, value]) => {
+        const label = key.replace(/_/g, ' ')
+        const severity = value >= 75 ? 'Strong' : value >= 55 ? 'Needs Work' : 'Weakest'
+        addLine(`${label}: ${value} (${severity})`, 11)
+      })
+    addGap(14)
+
+    // ---- Resume Skill Gap ----
+    if (resumeResult?.skill_gap_analysis) {
+      addLine('Resume & Role Fit', 14, true, [124, 92, 245])
+      addLine(`Role match: ${resumeResult.skill_gap_analysis.match_percentage}%`, 11)
+      const matched = resumeResult.skill_gap_analysis.matched_skills || []
+      const missing = resumeResult.skill_gap_analysis.missing_skills || []
+      if (matched.length) addLine(`Matched skills: ${matched.join(', ')}`, 11)
+      if (missing.length) addLine(`Skill gaps: ${missing.join(', ')}`, 11)
+      addGap(14)
+    }
+
+    // ---- Voice ----
+    if (speechResult && !speechResult.error) {
+      addLine('Voice Assessment', 14, true, [124, 92, 245])
+      addLine(`Speaking pace: ${speechResult.speaking_pace?.wpm} WPM`, 11)
+      addLine(`Filler words: ${speechResult.filler_analysis?.total_filler_count} (${speechResult.filler_analysis?.filler_ratio_percent}%)`, 11)
+      addLine(speechResult.speaking_pace?.pace_category || '', 11)
+      addGap(14)
+    }
+
+    // ---- Composure ----
+    if (emotionResult && !emotionResult.error) {
+      addLine('Composure Check', 14, true, [124, 92, 245])
+      addLine(`Dominant expression: ${emotionResult.dominant_emotion}`, 11)
+      addLine(emotionResult.composure_feedback || '', 11)
+      addGap(14)
+    }
+
+    // ---- Coding Round ----
+    if (finalRoundScore && !finalRoundScore.error) {
+      addLine('Coding Round', 14, true, [124, 92, 245])
+      addLine(`Score: ${finalRoundScore.final_score}% (${finalRoundScore.verdict})`, 11)
+      finalRoundScore.breakdown?.forEach((b) => {
+        addLine(`${b.difficulty}: ${b.passed}/${b.total} tests passed (${b.score_percent}%)`, 11)
+      })
+      addGap(14)
+    }
+
+    // ---- Roadmap ----
+    if (roadmapResult) {
+      addLine('Personalized Roadmap', 14, true, [124, 92, 245])
+      addLine(`Priority: ${roadmapResult.priority_focus}`, 11, true)
+      addGap(6)
+
+      if (roadmapResult.skill_gaps?.length) {
+        addLine('Skills to close:', 11, true)
+        roadmapResult.skill_gaps.forEach((item) => {
+          addLine(`- ${item.skill}: ${item.action}`, 10)
+        })
+        addGap(6)
+      }
+
+      if (roadmapResult.interview_technique?.length) {
+        addLine('Interview technique:', 11, true)
+        roadmapResult.interview_technique.forEach((tip) => addLine(`- ${tip}`, 10))
+        addGap(6)
+      }
+
+      if (roadmapResult.communication?.length) {
+        addLine('Communication:', 11, true)
+        roadmapResult.communication.forEach((tip) => addLine(`- ${tip}`, 10))
+      }
+    }
+
+    doc.save(`interview-readiness-report-${new Date().toISOString().slice(0, 10)}.pdf`)
+  }
+
   const scoreVal = scoreResult ? Math.round(scoreResult.final_score) : 0
   const matchVal = resumeResult ? Math.round(resumeResult.skill_gap_analysis?.match_percentage || 0) : 0
 
@@ -546,6 +801,16 @@ function App() {
         </div>
       </header>
 
+      <div className="wizard-banner slide-up" style={{ animationDelay: '0.02s' }}>
+        <div>
+          <p className="wizard-banner-title">Guided Mock Interview</p>
+          <p className="wizard-banner-sub">One continuous flow: resume fit → questions → voice → composure → report.</p>
+        </div>
+        <button className="action-btn accent-purple" onClick={handleStartWizard}>
+          <Play size={14} /> Start full mock interview
+        </button>
+      </div>
+
       {showSidebar && (
       <aside className="feature-strip glass slide-up" style={{ animationDelay: '0.32s', top: Math.max(sidebarTop - scrollY, 14) }}>
         <div className="feature-item" onClick={() => scrollToSection(sessionSummaryRef)}>
@@ -582,7 +847,7 @@ function App() {
       <main className="folder-grid" ref={mainRef}>
 
         {/* ---------- CARD 01 — RESUME ---------- */}
-        <section className="glass-card slide-up" style={{ animationDelay: '0.05s' }}>
+        <section className="glass-card slide-up" ref={resumeSectionRef} style={{ animationDelay: '0.05s' }}>
           <div className="card-top-border accent-teal-border" />
           <div className="card-head">
             <span className="card-icon icon-teal"><FileText size={20} /></span>
@@ -780,7 +1045,7 @@ function App() {
         </section>
 
         {/* ---------- CARD 03 — VOICE ---------- */}
-        <section className="glass-card slide-up" style={{ animationDelay: '0.19s' }}>
+        <section className="glass-card slide-up" ref={voiceSectionRef} style={{ animationDelay: '0.19s' }}>
           <div className="card-top-border accent-amber-border" />
           <div className="card-head">
             <span className="card-icon icon-amber"><Mic size={20} /></span>
@@ -792,18 +1057,28 @@ function App() {
 
           <div className="card-body">
             <div className="field">
-              <label>Recorded answer (audio file)</label>
-              <div className="file-picker">
+              <label>Record your answer</label>
+              <div className="record-controls">
+                {!isRecordingAudio ? (
+                  <button type="button" className="record-btn" onClick={handleStartAudioRecording}>
+                    <Circle size={14} className="record-dot" /> Record
+                  </button>
+                ) : (
+                  <button type="button" className="record-btn recording" onClick={handleStopAudioRecording}>
+                    <Square size={14} /> Stop ({recordingElapsed}s)
+                  </button>
+                )}
+                <span className="record-or">or</span>
                 <label className="file-btn">
                   <Upload size={14} /> Choose file
                   <input type="file" accept="audio/*" onChange={handleAudioFileChange} hidden />
                 </label>
-                <span className="file-name">{audioFileName || 'No file selected'}</span>
               </div>
+              <span className="file-name">{audioFileName || 'No recording yet'}</span>
             </div>
 
             <div className="field">
-              <label>Duration (seconds)</label>
+              <label>Duration (seconds) {audioFileName?.startsWith('Recorded') && '— auto-detected'}</label>
               <input
                 type="number"
                 className="duration-input"
@@ -859,7 +1134,7 @@ function App() {
         </section>
 
         {/* ---------- CARD 04 — COMPOSURE ---------- */}
-        <section className="glass-card slide-up" style={{ animationDelay: '0.26s' }}>
+        <section className="glass-card slide-up" ref={composureSectionRef} style={{ animationDelay: '0.26s' }}>
           <div className="card-top-border accent-blue-border" />
           <div className="card-head">
             <span className="card-icon icon-blue"><ScanFace size={20} /></span>
@@ -872,16 +1147,33 @@ function App() {
           <div className="card-body">
             <div className="field">
               <label>Photo (during rehearsal)</label>
-              <div className="file-picker">
+              <div className="record-controls">
+                {!cameraActive ? (
+                  <button type="button" className="record-btn" onClick={handleStartCamera}>
+                    <Camera size={14} /> Open camera
+                  </button>
+                ) : (
+                  <button type="button" className="record-btn recording" onClick={handleCapturePhoto}>
+                    <Circle size={14} className="record-dot" /> Capture
+                  </button>
+                )}
+                <span className="record-or">or</span>
                 <label className="file-btn">
                   <Upload size={14} /> Choose file
                   <input type="file" accept="image/*" onChange={handleImageFileChange} hidden />
                 </label>
-                <span className="file-name">{imageFileName || 'No file selected'}</span>
               </div>
+              <span className="file-name">{imageFileName || 'No photo yet'}</span>
             </div>
 
-            {imagePreview && (
+            {cameraActive && (
+              <div className="webcam-preview-wrap">
+                <video ref={videoRef} autoPlay playsInline muted className="webcam-video" />
+                <button type="button" className="camera-cancel-btn" onClick={handleStopCamera}>Cancel</button>
+              </div>
+            )}
+
+            {imagePreview && !cameraActive && (
               <img src={imagePreview} alt="preview" className="image-preview" />
             )}
 
@@ -979,6 +1271,9 @@ function App() {
                       <div className="round-question-head">
                         <span className={`diff-tag diff-${level}`}>{level}</span>
                         <h3 className="round-question-title">{question.title}</h3>
+                        {question.matched_to_skills && (
+                          <span className="matched-skill-badge">🎯 matched to your skills</span>
+                        )}
                       </div>
                       <p className="round-question-desc">{question.description}</p>
 
@@ -1090,11 +1385,19 @@ function App() {
               personalized study plan.
             </p>
 
-            <button className="action-btn accent-purple" onClick={handleGenerateReadinessReport} disabled={readinessLoading}>
-              {readinessLoading && <span className="spinner" />}
-              {!readinessLoading && <Sparkles size={14} />}
-              {readinessLoading ? 'Analyzing session…' : 'Generate readiness report'}
-            </button>
+            <div className="button-row">
+              <button className="action-btn accent-purple" onClick={handleGenerateReadinessReport} disabled={readinessLoading}>
+                {readinessLoading && <span className="spinner" />}
+                {!readinessLoading && <Sparkles size={14} />}
+                {readinessLoading ? 'Analyzing session…' : 'Generate readiness report'}
+              </button>
+
+              {readinessResult && !readinessResult.error && (
+                <button className="ghost-btn download-pdf-btn" onClick={handleDownloadPdfReport}>
+                  <Download size={14} /> Download PDF
+                </button>
+              )}
+            </div>
 
             {readinessLoading && (
               <div className="loading-panel">
@@ -1227,6 +1530,20 @@ function App() {
         </section>
 
       </main>
+
+      {wizardActive && (
+        <div className="wizard-bar">
+          <span className="wizard-bar-step">
+            Step {wizardStep + 1} / {WIZARD_STEPS.length}: {WIZARD_STEPS[wizardStep].label}
+          </span>
+          <div className="wizard-bar-actions">
+            <button className="ghost-btn wizard-exit-btn" onClick={handleWizardExit}>Exit</button>
+            <button className="action-btn accent-purple" onClick={handleWizardNext}>
+              {wizardStep === WIZARD_STEPS.length - 1 ? 'Finish & generate report' : 'Next step →'}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

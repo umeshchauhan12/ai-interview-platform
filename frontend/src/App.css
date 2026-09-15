@@ -232,6 +232,93 @@ body {
   flex-wrap: wrap;
 }
 
+/* ============ GUIDED MOCK INTERVIEW WIZARD ============ */
+
+.wizard-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+  background: linear-gradient(120deg, var(--purple-soft), var(--blue-soft));
+  border: 1px solid rgba(124,92,245,0.25);
+  border-radius: 20px;
+  padding: 20px 26px;
+  margin-bottom: 32px;
+  box-shadow: 0 10px 24px rgba(124,92,245,0.12);
+}
+
+.wizard-banner-title {
+  font-family: 'Fraunces', serif;
+  font-weight: 700;
+  font-size: 18px;
+  margin: 0 0 4px;
+  color: var(--ink);
+}
+
+.wizard-banner-sub {
+  font-size: 13px;
+  color: var(--ink-soft);
+  margin: 0;
+}
+
+.wizard-bar {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  background: var(--ink);
+  color: white;
+  padding: 14px 22px;
+  border-radius: 999px;
+  box-shadow: 0 16px 40px rgba(0,0,0,0.35);
+  z-index: 50;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.wizard-bar-step {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 12px;
+  color: #c3e6d5;
+  white-space: nowrap;
+}
+
+.wizard-bar-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.wizard-exit-btn {
+  background: transparent;
+  border-color: rgba(255,255,255,0.3);
+  color: white;
+  padding: 8px 16px;
+  font-size: 12px;
+}
+
+.wizard-exit-btn:hover {
+  border-color: white;
+  background: rgba(255,255,255,0.1);
+}
+
+@media (max-width: 600px) {
+  .wizard-banner {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .wizard-bar {
+    left: 12px;
+    right: 12px;
+    transform: none;
+    flex-direction: column;
+  }
+}
+
 .eyebrow {
   font-family: 'IBM Plex Mono', monospace;
   font-size: 11px;
@@ -510,6 +597,90 @@ select {
   width: 160px;
 }
 
+/* ============ LIVE RECORDING ============ */
+
+.record-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.record-btn {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 13px;
+  padding: 10px 18px;
+  background: var(--rust);
+  color: white;
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 4px 12px rgba(209,73,91,0.3);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.record-btn:hover {
+  transform: translateY(-2px);
+}
+
+.record-btn.recording {
+  background: var(--ink);
+  box-shadow: 0 4px 12px rgba(27,31,46,0.3);
+}
+
+.record-dot {
+  fill: white;
+  animation: recordPulse 1.2s ease infinite;
+}
+
+@keyframes recordPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+.record-or {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  color: var(--ink-soft);
+  text-transform: uppercase;
+}
+
+.webcam-preview-wrap {
+  position: relative;
+  margin: 14px 0;
+  max-width: 320px;
+}
+
+.webcam-video {
+  width: 100%;
+  min-height: 240px;
+  background: #1b1f2e;
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  box-shadow: 0 10px 24px rgba(60,50,100,0.14);
+  transform: scaleX(-1); /* mirror for a natural selfie view */
+  object-fit: cover;
+  display: block;
+}
+
+.camera-cancel-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  padding: 5px 12px;
+  background: rgba(27,31,46,0.7);
+  color: white;
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
 /* ============ FILE PICKER ============ */
 
 .file-picker {
@@ -673,6 +844,18 @@ select {
 .ghost-btn:disabled {
   color: #b7bcc2;
   cursor: not-allowed;
+}
+
+.download-pdf-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border-color: var(--purple);
+  color: var(--purple);
+}
+
+.download-pdf-btn:hover {
+  background: var(--purple-soft) !important;
 }
 
 .button-row {
@@ -1350,6 +1533,7 @@ select {
   align-items: center;
   gap: 12px;
   margin-bottom: 8px;
+  flex-wrap: wrap;
 }
 
 .round-question-title {
@@ -1358,6 +1542,17 @@ select {
   font-size: 16px;
   margin: 0;
   color: var(--ink);
+}
+
+.matched-skill-badge {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--purple-soft);
+  color: var(--purple);
+  white-space: nowrap;
 }
 
 .round-question-desc {

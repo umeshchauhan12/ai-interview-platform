@@ -25,7 +25,7 @@ from speech_analysis import analyze_speech
 from emotion_analysis import analyze_emotion_from_image
 from code_evaluator import (
     list_coding_questions, get_coding_question, run_submitted_code,
-    get_coding_round, score_coding_round
+    get_coding_round, score_coding_round, get_starter_code
 )
 from readiness_prediction import compute_readiness
 from roadmap_generator import generate_roadmap
@@ -207,13 +207,29 @@ def submit_code_endpoint(submission: CodeSubmission):
 
 
 @app.get("/coding-round")
-def get_coding_round_endpoint(role: str = "python developer"):
+def get_coding_round_endpoint(role: str = "python developer", skills: Optional[str] = None):
     """
     Automatically builds one full coding round: a randomly chosen Easy,
     Medium, and Hard question. No manual curation needed - a fresh mix
     is picked every time this is called.
+
+    Optional 'skills' param: a comma-separated list of skills (e.g. from
+    a resume/JD skill-gap analysis). When provided, questions whose tags
+    overlap with these skills are preferred for a more relevant round.
     """
-    return get_coding_round(role)
+    skills_list = [s.strip() for s in skills.split(",")] if skills else None
+    return get_coding_round(role, skills_list)
+
+
+@app.get("/starter-code")
+def get_starter_code_endpoint(question_id: str, language: str = "python"):
+    """
+    Returns a starter code template for a specific question in a given
+    language, so switching languages fills in the correct boilerplate
+    (input reading + output printing), leaving only the solve() logic
+    for the candidate to write.
+    """
+    return get_starter_code(question_id, language)
 
 
 class CodingRoundScoreRequest(BaseModel):
